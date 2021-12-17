@@ -1,0 +1,81 @@
+#pragma version 5
+intcblock 1 2 0 6
+bytecblock 0x30786465616462656566
+pushint TMPL_ADDR_IDX // TMPL_ADDR_IDX
+pop
+global GroupSize
+intc_1 // 2
+!=
+bnz main_l6
+arg 1
+pushbytes 0x696e6974 // "init"
+==
+bnz main_l5
+arg 1
+pushbytes 0x636c6f7365 // "close"
+==
+bnz main_l4
+err
+main_l4:
+callsub sub1
+return
+main_l5:
+callsub sub0
+return
+main_l6:
+intc_2 // 0
+return
+sub0: // init
+gtxn 0 TypeEnum
+intc_0 // pay
+==
+gtxn 0 Sender
+bytec_0 // "0xdeadbeef"
+==
+&&
+gtxn 0 Amount
+pushint 1000000000 // 1000000000
+==
+&&
+gtxn 1 TypeEnum
+intc_3 // appl
+==
+&&
+gtxn 1 OnCompletion
+intc_0 // OptIn
+==
+&&
+gtxn 1 ApplicationID
+intc_0 // 1
+==
+&&
+retsub
+sub1: // close
+gtxn 1 TypeEnum
+intc_0 // pay
+==
+gtxn 1 Receiver
+bytec_0 // "0xdeadbeef"
+==
+&&
+gtxn 1 CloseRemainderTo
+bytec_0 // "0xdeadbeef"
+==
+&&
+gtxn 1 Amount
+intc_2 // 0
+==
+&&
+gtxn 0 TypeEnum
+intc_3 // appl
+==
+&&
+gtxn 0 OnCompletion
+intc_1 // CloseOut
+==
+&&
+gtxn 0 ApplicationID
+intc_0 // 1
+==
+&&
+retsub
