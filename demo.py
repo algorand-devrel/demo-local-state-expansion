@@ -182,7 +182,7 @@ def demo(app_id=None):
         signed_closeout = LogicSigTransaction(closeout_txn, lsa)
         signed_close = LogicSigTransaction(close_txn, lsa)
 
-        send("destroy", [signed_closeout, signed_close], debug=True)
+        send("destroy", [signed_closeout, signed_close])
 
 
 # We're calling out tot he chain here, but in practice you'd be able to store
