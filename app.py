@@ -55,7 +55,7 @@ def approval():
 
     @Subroutine(TealType.uint64)
     def lookup():
-        return GetBit(blob.read(Int(1), byte_offset, Int(1)), bit_offset%Int(8))
+        return GetBit(blob.read(Int(1), byte_offset, Int(1)), bit_offset % Int(8))
 
     @Subroutine(TealType.uint64)
     def flip_bit():
@@ -63,16 +63,29 @@ def approval():
         bit_byte_offet = bit_idx % Int(8)
         return Seq(
             b.store(Btoi(blob.read(Int(1), byte_offset, Int(1)))),
-            #blob.write(Int(1), byte_offset, Bytes("asdfadsfasasdfasdfasdfasdfdf")),
-            blob.write(
-                Int(1), # Passed address
-                byte_offset,
-                Itob(SetBit(
-                    b.load(),
-                    bit_byte_offet,
-                    GetBit(BitwiseNot(b.load()), bit_byte_offet),
-                )),
-            )
+            # blob.write(Int(1), byte_offset, Bytes("asdfadsfasasdfasdfasdfasdfdf")),
+            Log(Itob(b.load())),
+            Log(Itob(byte_offset)),
+            Log(
+                Itob(
+                    blob.write(
+                        Int(1),  # Passed address
+                        byte_offset,
+                        Extract(
+                            Itob(
+                                SetBit(
+                                    b.load(),
+                                    bit_byte_offet,
+                                    GetBit(BitwiseNot(b.load()), bit_byte_offet),
+                                )
+                            ),
+                            Int(7),
+                            Int(1),
+                        ),
+                    )
+                )
+            ),
+            Int(1),
         )
 
     router = Cond(
@@ -93,11 +106,18 @@ def approval():
 def clear():
     return Return(Int(1))
 
+
 def get_approval_src():
-    return compileTeal(approval(), mode=Mode.Application, version=5, assembleConstants=True)
+    return compileTeal(
+        approval(), mode=Mode.Application, version=5, assembleConstants=True
+    )
+
 
 def get_clear_src():
-    return compileTeal(clear(), mode=Mode.Application, version=5, assembleConstants=True)
+    return compileTeal(
+        clear(), mode=Mode.Application, version=5, assembleConstants=True
+    )
+
 
 if __name__ == "__main__":
     path = os.path.dirname(os.path.abspath(__file__))

@@ -1,6 +1,11 @@
 from pyteal import *
 
-def sig_tmpl(admin_addr="PU2IEPAQDH5CCFWVRB3B5RU7APETCMF24574NA5PKMYSHM2ZZ3N3AIHJUI", admin_app_id=1, seed_amt=int(1e9)):
+
+def sig_tmpl(
+    admin_addr="PU2IEPAQDH5CCFWVRB3B5RU7APETCMF24574NA5PKMYSHM2ZZ3N3AIHJUI",
+    admin_app_id=1,
+    seed_amt=int(1e9),
+):
     admin_addr = Addr(admin_addr)
     admin_app_id = Int(admin_app_id)
     seed_amt = Int(seed_amt)
@@ -24,7 +29,7 @@ def sig_tmpl(admin_addr="PU2IEPAQDH5CCFWVRB3B5RU7APETCMF24574NA5PKMYSHM2ZZ3N3AIH
         algo_close = Gtxn[1]
         closeout = Gtxn[0]
 
-        #TODO: actually check that we cosigned this transaction
+        # TODO: actually check that we cosigned this transaction
         return And(
             algo_close.type_enum() == TxnType.Payment,
             algo_close.receiver() == admin_addr,

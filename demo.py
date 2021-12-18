@@ -10,7 +10,7 @@ from algosdk import *
 from algosdk.v2client import algod
 from algosdk.future.transaction import *
 
-from app import get_clear_src, get_approval_src 
+from app import get_clear_src, get_approval_src
 from sandbox import get_accounts
 
 
@@ -71,39 +71,42 @@ class TmplSig:
         # If you want to inspect the output,
         # uncomment this, then `goal clerk compile -D tmp.teal.tok`
         # and verify its populated the template variables correctly
-        #with open("tmp.teal.tok", "wb") as f:
+        # with open("tmp.teal.tok", "wb") as f:
         #   f.write(bytes(contract))
 
         return LogicSigAccount(bytes(contract))
+
 
 app_id = 10
 seed_amt = int(1e9)
 
 max_keys = 16
 max_bytes = 127 * max_keys
-max_bits =  8 * max_bytes
+max_bits = 8 * max_bytes
+
 
 def get_addr_idx(seq_id):
     return int(seq_id / max_bits)
 
+
 def get_byte_idx(seq_id):
     return int(seq_id % max_bytes)
 
+
 def get_byte_key(seq_id):
     return get_byte_idx(seq_id) % max_keys
+
 
 def get_bit_idx(seq_id):
     return int(seq_id % max_bits)
 
 
-def debug_seq():
-    # iterate over a bunch of numbers, prime iter for testing
-    for s in range(0, 100000, 103):
-        print("for seq id: {}".format(s))
-        print("\taddr idx: {}".format(get_addr_idx(s)))
-        print("\tbyte key: {}".format(get_byte_key(s)))
-        print("\tbyte offset: {}".format(get_byte_idx(s)))
-        print("\tbit offset: {}".format(get_bit_idx(s)))
+def debug_seq(s):
+    print("for seq id: {}".format(s))
+    print("\taddr idx: {}".format(get_addr_idx(s)))
+    print("\tbyte key: {}".format(get_byte_key(s)))
+    print("\tbyte offset: {}".format(get_byte_idx(s)))
+    print("\tbit offset: {}".format(get_bit_idx(s)))
 
 
 def demo(app_id=None):
@@ -122,10 +125,8 @@ def demo(app_id=None):
         update_app(app_id, addr, sk)
         print("Updated app: {}".format(app_id))
 
-    # debug_seq()
-
-
     seq_id = 10000100
+    debug_seq(seq_id)
 
     lsa = tsig.populate({"TMPL_ADDR_IDX": get_addr_idx(seq_id)})
     print("For seq {} address is {}".format(seq_id, lsa.address()))
@@ -147,17 +148,21 @@ def demo(app_id=None):
     try:
         # Flip the bit
         sp = client.suggested_params()
-        flip_txn = ApplicationNoOpTxn(addr, sp, app_id, ["flip_bit", seq_id.to_bytes(8,'big')], accounts=[lsa.address()])
+        flip_txn = ApplicationNoOpTxn(
+            addr,
+            sp,
+            app_id,
+            ["flip_bit", seq_id.to_bytes(8, "big")],
+            accounts=[lsa.address()],
+        )
         signed_flip = flip_txn.sign(sk)
         result = send("flip_bit", [signed_flip])
-        print(result['logs'])
+        print(result["logs"])
 
-
-        bits = check_bits_set(app_id, int(seq_id/max_bits), lsa.address())
+        bits = check_bits_set(app_id, int(seq_id / max_bits), lsa.address())
         print(bits)
     except Exception as e:
         print("failed to flip bit :( {}".format(e))
-
 
     if False:
         # destroy it
@@ -166,7 +171,7 @@ def demo(app_id=None):
         closeout_txn = ApplicationCloseOutTxn(lsa.address(), sp, app_id)
         close_txn = PaymentTxn(lsa.address(), sp, addr, 0, close_remainder_to=addr)
 
-        assign_group_id([closeout_txn, close_txn ])
+        assign_group_id([closeout_txn, close_txn])
 
         signed_closeout = LogicSigTransaction(closeout_txn, lsa)
         signed_close = LogicSigTransaction(close_txn, lsa)
@@ -180,11 +185,11 @@ def account_exists(app_id, addr):
 
     try:
         ai = client.account_info(addr)
-        if 'apps-local-state' not in ai:
+        if "apps-local-state" not in ai:
             return False
 
-        for app in ai['apps-local-state']:
-            if app['id'] == app_id:
+        for app in ai["apps-local-state"]:
+            if app["id"] == app_id:
                 return True
     except:
         print("Failed to find account {}".format(addr))
@@ -196,21 +201,21 @@ def check_bits_set(app_id, start, addr):
     bits = {}
 
     ai = client.account_info(addr)
-    for app in ai['apps-local-state']:
-        if app['id'] == app_id:
-            app_state = app['key-value']
+    for app in ai["apps-local-state"]:
+        if app["id"] == app_id:
+            app_state = app["key-value"]
 
     for kv in app_state:
-        k = list(base64.b64decode(kv['key']))
-        v = list(base64.b64decode(kv['value']['bytes']))
+        k = list(base64.b64decode(kv["key"]))
+        v = list(base64.b64decode(kv["value"]["bytes"]))
 
-        bit_set = [idx for idx, val in enumerate(v) if val != 0] 
+        bit_set = [idx for idx, val in enumerate(v) if val != 0]
 
         print(len(v))
 
-        if len(bit_set)>0:
+        if len(bit_set) > 0:
             print(k, v, bit_set)
-    
+
     return bits
 
 
@@ -224,6 +229,7 @@ def get_app_call(addr, sp, app_id, app_args=[], assets=[], accounts=[]):
         foreign_assets=assets,
         accounts=accounts,
     )
+
 
 def update_app(id, addr, sk):
     # Read in approval teal source && compile
@@ -247,6 +253,7 @@ def update_app(id, addr, sk):
 
     # Wait for the result so we can return the app id
     return wait_for_confirmation(client, txid, 4)
+
 
 def create_app(addr, sk):
     # Read in approval teal source && compile
@@ -279,12 +286,11 @@ def create_app(addr, sk):
     return result["application-index"]
 
 
-
 def send(name, signed_group, debug=False):
     print("Sending Transaction for {}".format(name))
 
     if debug:
-        with open(name+".txns", "wb") as f:
+        with open(name + ".txns", "wb") as f:
             for tx in signed_group:
                 f.write(base64.b64decode(msgpack_encode(tx)))
 
