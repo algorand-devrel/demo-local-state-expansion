@@ -1,28 +1,21 @@
 #pragma version 5
 intcblock 1 2 0 6
-bytecblock 0x30786465616462656566
-pushint TMPL_ADDR_IDX // TMPL_ADDR_IDX
+bytecblock 0x7d34823c1019fa2116d588761ec69f03c93130bae77fc683af533123b359cedb
+pushint 0 // TMPL_ADDR_IDX
 pop
 global GroupSize
 intc_1 // 2
 !=
-bnz main_l6
-arg 1
-pushbytes 0x696e6974 // "init"
-==
-bnz main_l5
-arg 1
-pushbytes 0x636c6f7365 // "close"
-==
 bnz main_l4
+intc_0 // 1
+bnz main_l3
 err
-main_l4:
-callsub sub1
-return
-main_l5:
+main_l3:
 callsub sub0
+callsub sub1
+||
 return
-main_l6:
+main_l4:
 intc_2 // 0
 return
 sub0: // init
@@ -30,7 +23,7 @@ gtxn 0 TypeEnum
 intc_0 // pay
 ==
 gtxn 0 Sender
-bytec_0 // "0xdeadbeef"
+bytec_0 // PU2IEPAQDH5CCFWVRB3B5RU7APETCMF24574NA5PKMYSHM2ZZ3N3AIHJUI
 ==
 &&
 gtxn 0 Amount
@@ -55,11 +48,11 @@ gtxn 1 TypeEnum
 intc_0 // pay
 ==
 gtxn 1 Receiver
-bytec_0 // "0xdeadbeef"
+bytec_0 // PU2IEPAQDH5CCFWVRB3B5RU7APETCMF24574NA5PKMYSHM2ZZ3N3AIHJUI
 ==
 &&
 gtxn 1 CloseRemainderTo
-bytec_0 // "0xdeadbeef"
+bytec_0 // PU2IEPAQDH5CCFWVRB3B5RU7APETCMF24574NA5PKMYSHM2ZZ3N3AIHJUI
 ==
 &&
 gtxn 1 Amount
