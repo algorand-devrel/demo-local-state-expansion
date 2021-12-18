@@ -21,7 +21,7 @@ def approval():
     bit_idx = Btoi(Txn.application_args[1])
 
     # Offset into the blob of the byte
-    byte_offset = bit_idx % Int(max_bytes)
+    byte_offset = (bit_idx/Int(8)) % Int(max_bytes)
 
     # Offset into the byte of the bit
     bit_offset = bit_idx % Int(max_bits)
@@ -63,29 +63,21 @@ def approval():
         bit_byte_offet = bit_idx % Int(8)
         return Seq(
             b.store(Btoi(blob.read(Int(1), byte_offset, Int(1)))),
-            # blob.write(Int(1), byte_offset, Bytes("asdfadsfasasdfasdfasdfasdfdf")),
-            Log(Itob(b.load())),
-            Log(Itob(byte_offset)),
-            Log(
-                Itob(
-                    blob.write(
-                        Int(1),  # Passed address
-                        byte_offset,
-                        Extract(
-                            Itob(
-                                SetBit(
-                                    b.load(),
-                                    bit_byte_offet,
-                                    GetBit(BitwiseNot(b.load()), bit_byte_offet),
-                                )
-                            ),
-                            Int(7),
-                            Int(1),
-                        ),
-                    )
-                )
-            ),
-            Int(1),
+            blob.write(
+                Int(1),  # Passed address
+                byte_offset,
+                Extract(
+                    Itob(
+                        SetBit(
+                            b.load(),
+                            bit_byte_offet,
+                            GetBit(BitwiseNot(b.load()), bit_byte_offet),
+                        )
+                    ),
+                    Int(7),
+                    Int(1),
+                ),
+            )
         )
 
     router = Cond(

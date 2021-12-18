@@ -81,8 +81,12 @@ app_id = 10
 seed_amt = int(1e9)
 
 max_keys = 16
-max_bytes = 127 * max_keys
-max_bits = 8 * max_bytes
+max_bytes_per_key = 127
+bits_per_byte = 8
+
+bits_per_key = max_bytes_per_key * bits_per_byte
+max_bytes = max_bytes_per_key * max_keys
+max_bits = bits_per_byte * max_bytes
 
 
 def get_addr_idx(seq_id):
@@ -90,20 +94,21 @@ def get_addr_idx(seq_id):
 
 
 def get_byte_idx(seq_id):
-    return int(seq_id % max_bytes)
-
+    return int(seq_id/bits_per_byte) % max_bytes
 
 def get_byte_key(seq_id):
-    return get_byte_idx(seq_id) % max_keys
-
+    return int(get_byte_idx(seq_id) / max_bytes_per_key)
 
 def get_bit_idx(seq_id):
     return int(seq_id % max_bits)
 
+def get_start_bit(seq_id):
+    return int(seq_id / max_bits) * max_bits
 
 def debug_seq(s):
     print("for seq id: {}".format(s))
     print("\taddr idx: {}".format(get_addr_idx(s)))
+    print("\tStart Bit: {}".format(get_start_bit(s)))
     print("\tbyte key: {}".format(get_byte_key(s)))
     print("\tbyte offset: {}".format(get_byte_idx(s)))
     print("\tbit offset: {}".format(get_bit_idx(s)))
@@ -125,8 +130,8 @@ def demo(app_id=None):
         update_app(app_id, addr, sk)
         print("Updated app: {}".format(app_id))
 
-    seq_id = 10000100
-    debug_seq(seq_id)
+    seq_id = 1000000003 
+    #debug_seq(seq_id)
 
     lsa = tsig.populate({"TMPL_ADDR_IDX": get_addr_idx(seq_id)})
     print("For seq {} address is {}".format(seq_id, lsa.address()))
@@ -157,9 +162,10 @@ def demo(app_id=None):
         )
         signed_flip = flip_txn.sign(sk)
         result = send("flip_bit", [signed_flip])
-        print(result["logs"])
+        if 'logs' in result:
+            print(result['logs'])
 
-        bits = check_bits_set(app_id, int(seq_id / max_bits), lsa.address())
+        bits = check_bits_set(app_id, get_start_bit(seq_id), lsa.address())
         print(bits)
     except Exception as e:
         print("failed to flip bit :( {}".format(e))
@@ -198,7 +204,7 @@ def account_exists(app_id, addr):
 
 
 def check_bits_set(app_id, start, addr):
-    bits = {}
+    bits_set = {}
 
     ai = client.account_info(addr)
     for app in ai["apps-local-state"]:
@@ -206,29 +212,26 @@ def check_bits_set(app_id, start, addr):
             app_state = app["key-value"]
 
     for kv in app_state:
-        k = list(base64.b64decode(kv["key"]))
+        key = list(base64.b64decode(kv["key"]))[0]
         v = list(base64.b64decode(kv["value"]["bytes"]))
 
-        bit_set = [idx for idx, val in enumerate(v) if val != 0]
+        for byte_idx, val in enumerate(v):
+            if val == 0:
+                continue
 
-        print(len(v))
+            bits = list(format(val, 'b').zfill(8))
+            bits.reverse()
+            for bit_idx, bit in enumerate(bits):
+                if bit == '0':
+                    continue
 
-        if len(bit_set) > 0:
-            print(k, v, bit_set)
+                byte_start = byte_idx + key*max_bytes_per_key
 
-    return bits
+                seq = start + byte_start * bits_per_byte + bit_idx
 
+                bits_set[seq] = True
 
-def get_app_call(addr, sp, app_id, app_args=[], assets=[], accounts=[]):
-    return ApplicationCallTxn(
-        addr,
-        sp,
-        app_id,
-        OnComplete.NoOpOC,
-        app_args=app_args,
-        foreign_assets=assets,
-        accounts=accounts,
-    )
+    return bits_set
 
 
 def update_app(id, addr, sk):
