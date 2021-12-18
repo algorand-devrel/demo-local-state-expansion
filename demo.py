@@ -94,16 +94,20 @@ def get_addr_idx(seq_id):
 
 
 def get_byte_idx(seq_id):
-    return int(seq_id/bits_per_byte) % max_bytes
+    return int(seq_id / bits_per_byte) % max_bytes
+
 
 def get_byte_key(seq_id):
     return int(get_byte_idx(seq_id) / max_bytes_per_key)
 
+
 def get_bit_idx(seq_id):
     return int(seq_id % max_bits)
 
+
 def get_start_bit(seq_id):
     return int(seq_id / max_bits) * max_bits
+
 
 def debug_seq(s):
     print("for seq id: {}".format(s))
@@ -130,8 +134,8 @@ def demo(app_id=None):
         update_app(app_id, addr, sk)
         print("Updated app: {}".format(app_id))
 
-    seq_id = 1000000003 
-    #debug_seq(seq_id)
+    seq_id = 1000000003
+    # debug_seq(seq_id)
 
     lsa = tsig.populate({"TMPL_ADDR_IDX": get_addr_idx(seq_id)})
     print("For seq {} address is {}".format(seq_id, lsa.address()))
@@ -162,8 +166,8 @@ def demo(app_id=None):
         )
         signed_flip = flip_txn.sign(sk)
         result = send("flip_bit", [signed_flip])
-        if 'logs' in result:
-            print(result['logs'])
+        if "logs" in result:
+            print(result["logs"])
 
         bits = check_bits_set(app_id, get_start_bit(seq_id), lsa.address())
         print(bits)
@@ -219,13 +223,13 @@ def check_bits_set(app_id, start, addr):
             if val == 0:
                 continue
 
-            bits = list(format(val, 'b').zfill(8))
+            bits = list(format(val, "b").zfill(8))
             bits.reverse()
             for bit_idx, bit in enumerate(bits):
-                if bit == '0':
+                if bit == "0":
                     continue
 
-                byte_start = byte_idx + key*max_bytes_per_key
+                byte_start = byte_idx + key * max_bytes_per_key
 
                 seq = start + byte_start * bits_per_byte + bit_idx
 

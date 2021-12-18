@@ -21,7 +21,7 @@ def approval():
     bit_idx = Btoi(Txn.application_args[1])
 
     # Offset into the blob of the byte
-    byte_offset = (bit_idx/Int(8)) % Int(max_bytes)
+    byte_offset = (bit_idx / Int(8)) % Int(max_bytes)
 
     # Offset into the byte of the bit
     bit_offset = bit_idx % Int(max_bits)
@@ -55,29 +55,25 @@ def approval():
 
     @Subroutine(TealType.uint64)
     def lookup():
-        return GetBit(blob.read(Int(1), byte_offset, Int(1)), bit_offset % Int(8))
+        return GetBit(blob.get_byte(Int(1), byte_offset), bit_offset % Int(8))
 
     @Subroutine(TealType.uint64)
     def flip_bit():
         b = ScratchVar()
-        bit_byte_offet = bit_idx % Int(8)
+        bit_byte_offset = bit_idx % Int(8)
+        acct_idx = Int(1)
         return Seq(
-            b.store(Btoi(blob.read(Int(1), byte_offset, Int(1)))),
-            blob.write(
-                Int(1),  # Passed address
+            b.store(blob.get_byte(acct_idx, byte_offset)),
+            blob.set_byte(
+                acct_idx,
                 byte_offset,
-                Extract(
-                    Itob(
-                        SetBit(
-                            b.load(),
-                            bit_byte_offet,
-                            GetBit(BitwiseNot(b.load()), bit_byte_offet),
-                        )
-                    ),
-                    Int(7),
-                    Int(1),
-                ),
-            )
+                SetBit(
+                    b.load(),
+                    bit_byte_offset,
+                    GetBit(BitwiseNot(b.load()), bit_byte_offset),
+                )
+            ),
+            Int(1),
         )
 
     router = Cond(
