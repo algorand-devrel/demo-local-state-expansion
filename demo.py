@@ -61,10 +61,16 @@ def demo():
         update_app(app_id, addr, sk)
         print("Updated app: {}".format(app_id))
 
-    tsig = TmplSig()
-    cache = {}
 
-    seq = [random.randint(0, int(1e3)) for x in range(int(1e4))]
+    # Instantiate once, has ref to sig 
+    tsig = TmplSig()
+
+    # Lazy cache accts we see
+    cache = {}
+    
+    # Get some random sequence
+    seq = [random.randint(0, int(1e6)) for x in range(int(1e3))]
+
     for seq_id in seq:
         lsa = tsig.populate({"TMPL_ADDR_IDX": get_addr_idx(seq_id)})
 
@@ -105,9 +111,11 @@ def demo():
 
             bits = check_bits_set(app_id, get_start_bit(seq_id), sig_addr)
             cache[sig_addr] = bits
-            print("Bits currently flipped to true for {}: {}".format(sig_addr, bits))
+            #print("Bits currently flipped to true for {}: {}".format(sig_addr, bits))
+            
             print(
-                "Number bits checked: {}".format(
+                "Accounts: {}, Bits Flipped: {}".format(
+                    len(cache),
                     sum([len(v) for _, v in cache.items()])
                 )
             )
