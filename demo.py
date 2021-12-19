@@ -18,7 +18,7 @@ client = algod.AlgodClient(token, url)
 # To delete accounts in seq loop
 cleanup = False
 
-app_id = 1  # Your app id
+app_id = None  # Your app id
 seed_amt = int(1e9)  # How much to give the acct
 admin_addr = "PU2IEPAQDH5CCFWVRB3B5RU7APETCMF24574NA5PKMYSHM2ZZ3N3AIHJUI"  # Address used to admin
 
@@ -34,7 +34,6 @@ max_bits = bits_per_byte * max_bytes
 # TmplSig is a class to hold the source of a template contract
 # populate can be called to get a LogicSig with the variables replaced
 class TmplSig:
-
     def __init__(self):
         # Get compiled sig
         self.tmpl = get_sig_tmpl(
@@ -76,7 +75,7 @@ def demo():
     cache = {}
 
     # Get some random sequence
-    seq = [random.randint(0, int(1e6)) for x in range(int(1e3))]
+    seq = [random.randint(0, int(1e6)) for x in range(1000)]
 
     for seq_id in seq:
         lsa = tsig.populate({"TMPL_ADDR_IDX": get_addr_idx(seq_id)})
@@ -250,6 +249,10 @@ def send(name, signed_group, debug=False):
     print("Sending Transaction for {}".format(name))
 
     if debug:
+        # with open(name + ".msgp", "wb") as f:
+        #    f.write(
+        #        base64.b64decode(msgpack_encode(create_dryrun(client, signed_group)))
+        #    )
         with open(name + ".txns", "wb") as f:
             for tx in signed_group:
                 f.write(base64.b64decode(msgpack_encode(tx)))
