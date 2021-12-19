@@ -61,13 +61,12 @@ def demo():
         update_app(app_id, addr, sk)
         print("Updated app: {}".format(app_id))
 
-
-    # Instantiate once, has ref to sig 
+    # Instantiate once, has ref to sig
     tsig = TmplSig()
 
     # Lazy cache accts we see
     cache = {}
-    
+
     # Get some random sequence
     seq = [random.randint(0, int(1e6)) for x in range(int(1e3))]
 
@@ -111,16 +110,13 @@ def demo():
 
             bits = check_bits_set(app_id, get_start_bit(seq_id), sig_addr)
             cache[sig_addr] = bits
-            #print("Bits currently flipped to true for {}: {}".format(sig_addr, bits))
-            
+            # print("Bits currently flipped to true for {}: {}".format(sig_addr, bits))
+
             print(
                 "Accounts: {}, Bits Flipped: {}".format(
-                    len(cache),
-                    sum([len(v) for _, v in cache.items()])
+                    len(cache), sum([len(v) for _, v in cache.items()])
                 )
             )
-            print(asdf)
-
         except Exception as e:
             print("failed to flip bit :( {}".format(e.with_traceback()))
 
