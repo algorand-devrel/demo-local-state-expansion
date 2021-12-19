@@ -51,10 +51,12 @@ def sig_tmpl(
     )
 
 
+def get_sig_tmpl():
+    return compileTeal(
+        sig_tmpl(), mode=Mode.Signature, version=5, assembleConstants=True
+    )
+
+
 if __name__ == "__main__":
     with open("sig.tmpl.teal", "w") as f:
-        f.write(
-            compileTeal(
-                sig_tmpl(), mode=Mode.Signature, version=5, assembleConstants=True
-            )
-        )
+        f.write(get_sig_tmpl())

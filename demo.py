@@ -11,6 +11,8 @@ from algosdk.v2client import algod
 from algosdk.future.transaction import *
 
 from app import get_clear_src, get_approval_src
+from sig import get_sig_tmpl
+
 from sandbox import get_accounts
 
 
@@ -19,63 +21,7 @@ url = "http://localhost:4001"
 
 client = algod.AlgodClient(token, url)
 
-
-class TmplSig:
-    def __init__(self, tmpl_name="sig.tmpl.teal"):
-        with open(tmpl_name + ".tok", "rb") as f:
-            self.tmpl = list(f.read())
-
-        with open(tmpl_name + ".map.json", "r") as f:
-            self.map = json.loads(f.read())
-
-        # Make sure they're sorted into the order they appear in
-        # the contract or the `shift` will be wrong
-        self.tmpl_vars = dict(
-            sorted(
-                self.map["template_variables"].items(),
-                key=lambda item: item[1]["position"],
-            )
-        )
-
-    def populate(self, vars) -> LogicSigAccount:
-        contract = self.tmpl[:]
-        shift = 0
-
-        for k, v in self.tmpl_vars.items():
-            if k not in vars:
-                raise KeyError("Missing key: {}".format(k))
-
-            pos = v["position"] + shift
-            if v["type"] == 1:  # bytes
-                # Get the value we're about to encode
-                val = bytes.fromhex(vars[k])
-
-                # Encode the length as uvarint
-                lbyte = uvarint.encode(len(val))
-
-                # -1 to account for the existing 00 byte for length
-                shift += (len(lbyte) - 1) + len(val)
-
-                # +1 to overwrite the existing 00 byte for length
-                contract[pos : pos + 1] = lbyte + val
-
-            else:  # int
-                val = uvarint.encode(vars[k])
-
-                # -1 to account for existing 00 byte
-                shift += len(val) - 1
-
-                # +1 to overwrite existing 00 byte
-                contract[pos : pos + 1] = val
-
-        # If you want to inspect the output,
-        # uncomment this, then `goal clerk compile -D tmp.teal.tok`
-        # and verify its populated the template variables correctly
-        # with open("tmp.teal.tok", "wb") as f:
-        #   f.write(bytes(contract))
-
-        return LogicSigAccount(bytes(contract))
-
+cleanup =  False 
 
 app_id = 10
 seed_amt = int(1e9)
@@ -89,6 +35,20 @@ max_bytes = max_bytes_per_key * max_keys
 max_bits = bits_per_byte * max_bytes
 
 
+class TmplSig:
+    def __init__(self):
+        self.tmpl = get_sig_tmpl()
+
+    def populate(self, vars):
+        src = self.tmpl
+        for k, v in vars.items():
+            src = src.replace(k, str(v))
+        res = client.compile(src)
+
+        return LogicSigAccount(base64.b64decode(res["result"]))
+
+
+# Sanity checks
 def get_addr_idx(seq_id):
     return int(seq_id / max_bits)
 
@@ -120,8 +80,6 @@ def debug_seq(s):
 
 def demo(app_id=None):
 
-    tsig = TmplSig()
-
     # Get Account from sandbox
     addr, sk = get_accounts()[0]
     print("Using {}".format(addr))
@@ -135,58 +93,72 @@ def demo(app_id=None):
         print("Updated app: {}".format(app_id))
 
     seq_id = 1000000003
-    # debug_seq(seq_id)
 
-    lsa = tsig.populate({"TMPL_ADDR_IDX": get_addr_idx(seq_id)})
-    print("For seq {} address is {}".format(seq_id, lsa.address()))
+    tsig = TmplSig()
 
-    if not account_exists(app_id, lsa.address()):
-        # Create it
-        sp = client.suggested_params()
+    cache = {}
+    import random
+    seq = [random.randint(0, int(1e3)) for x in range(int(1e4))]
+    for seq_id in seq:
+        lsa = tsig.populate({"TMPL_ADDR_IDX": get_addr_idx(seq_id)})
 
-        seed_txn = PaymentTxn(addr, sp, lsa.address(), seed_amt)
-        optin_txn = ApplicationOptInTxn(lsa.address(), sp, app_id)
+        print("For seq {} address is {}".format(seq_id, lsa.address()))
 
-        assign_group_id([seed_txn, optin_txn])
+        sig_addr =  lsa.address()
 
-        signed_seed = seed_txn.sign(sk)
-        signed_optin = LogicSigTransaction(optin_txn, lsa)
+        if sig_addr not in cache and not account_exists(app_id,sig_addr):
+            # Create it
+            sp = client.suggested_params()
 
-        send("create", [signed_seed, signed_optin])
+            seed_txn = PaymentTxn(addr, sp, sig_addr, seed_amt)
+            optin_txn = ApplicationOptInTxn(sig_addr, sp, app_id)
 
-    try:
-        # Flip the bit
-        sp = client.suggested_params()
-        flip_txn = ApplicationNoOpTxn(
-            addr,
-            sp,
-            app_id,
-            ["flip_bit", seq_id.to_bytes(8, "big")],
-            accounts=[lsa.address()],
-        )
-        signed_flip = flip_txn.sign(sk)
-        result = send("flip_bit", [signed_flip])
-        if "logs" in result:
-            print(result["logs"])
+            assign_group_id([seed_txn, optin_txn])
 
-        bits = check_bits_set(app_id, get_start_bit(seq_id), lsa.address())
-        print(bits)
-    except Exception as e:
-        print("failed to flip bit :( {}".format(e))
+            signed_seed = seed_txn.sign(sk)
+            signed_optin = LogicSigTransaction(optin_txn, lsa)
 
-    if False:
-        # destroy it
-        sp = client.suggested_params()
+            send("create", [signed_seed, signed_optin])
+            cache[sig_addr] = {}
 
-        closeout_txn = ApplicationCloseOutTxn(lsa.address(), sp, app_id)
-        close_txn = PaymentTxn(lsa.address(), sp, addr, 0, close_remainder_to=addr)
+        try:
+            # Flip the bit
+            sp = client.suggested_params()
+            flip_txn = ApplicationNoOpTxn(
+                addr,
+                sp,
+                app_id,
+                ["flip_bit", seq_id.to_bytes(8, "big")],
+                accounts=[sig_addr],
+            )
+            signed_flip = flip_txn.sign(sk)
+            result = send("flip_bit", [signed_flip])
 
-        assign_group_id([closeout_txn, close_txn])
+            if "logs" in result:
+                print(result["logs"])
 
-        signed_closeout = LogicSigTransaction(closeout_txn, lsa)
-        signed_close = LogicSigTransaction(close_txn, lsa)
+            bits = check_bits_set(app_id, get_start_bit(seq_id), sig_addr)
+            cache[sig_addr] = bits
+            print("Bits currently flipped to true for {}: {}".format(sig_addr, bits))
+            print("Number bits checked: {}".format(sum([len(v) for _,v in cache.items()])))
+            
+        except Exception as e:
+            print("failed to flip bit :( {}".format(e))
 
-        send("destroy", [signed_closeout, signed_close])
+        if cleanup:
+            # destroy it
+            sp = client.suggested_params()
+
+            closeout_txn = ApplicationCloseOutTxn(sig_addr, sp, app_id)
+            close_txn = PaymentTxn(sig_addr, sp, addr, 0, close_remainder_to=addr)
+
+            assign_group_id([closeout_txn, close_txn])
+
+            signed_closeout = LogicSigTransaction(closeout_txn, lsa)
+            signed_close = LogicSigTransaction(close_txn, lsa)
+
+            send("destroy", [signed_closeout, signed_close])
+            del cache[sig_addr]
 
 
 # We're calling out tot he chain here, but in practice you'd be able to store

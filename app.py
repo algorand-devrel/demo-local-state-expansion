@@ -71,7 +71,7 @@ def approval():
                     b.load(),
                     bit_byte_offset,
                     GetBit(BitwiseNot(b.load()), bit_byte_offset),
-                )
+                ),
             ),
             Int(1),
         )
