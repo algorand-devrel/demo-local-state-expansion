@@ -119,9 +119,10 @@ def demo():
                     sum([len(v) for _, v in cache.items()])
                 )
             )
+            print(asdf)
 
         except Exception as e:
-            print("failed to flip bit :( {}".format(e))
+            print("failed to flip bit :( {}".format(e.with_traceback()))
 
         if cleanup:
             # destroy it
