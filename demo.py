@@ -1,30 +1,26 @@
 import base64
-import json
-from os import close
-from algosdk.encoding import future_msgpack_decode, msgpack_encode
-import uvarint
+import random
 
-from pyteal import *
-
-from algosdk import *
 from algosdk.v2client import algod
+from algosdk.encoding import msgpack_encode
 from algosdk.future.transaction import *
-
-from app import get_clear_src, get_approval_src
-from sig import get_sig_tmpl
 
 from sandbox import get_accounts
 
+from app import get_clear_src, get_approval_src
+from sig import get_sig_tmpl
 
 token = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 url = "http://localhost:4001"
 
 client = algod.AlgodClient(token, url)
 
-cleanup =  False 
+# To delete accounts in seq loop
+cleanup = False
 
-app_id = 10
-seed_amt = int(1e9)
+app_id = 1  # Your app id
+seed_amt = int(1e9)  # How much to give the acct
+admin_addr = "PU2IEPAQDH5CCFWVRB3B5RU7APETCMF24574NA5PKMYSHM2ZZ3N3AIHJUI"  # Address used to admin
 
 max_keys = 16
 max_bytes_per_key = 127
@@ -37,7 +33,9 @@ max_bits = bits_per_byte * max_bytes
 
 class TmplSig:
     def __init__(self):
-        self.tmpl = get_sig_tmpl()
+        self.tmpl = get_sig_tmpl(
+            app_id=app_id, seed_amt=seed_amt, admin_addr=admin_addr
+        )
 
     def populate(self, vars):
         src = self.tmpl
@@ -48,37 +46,8 @@ class TmplSig:
         return LogicSigAccount(base64.b64decode(res["result"]))
 
 
-# Sanity checks
-def get_addr_idx(seq_id):
-    return int(seq_id / max_bits)
-
-
-def get_byte_idx(seq_id):
-    return int(seq_id / bits_per_byte) % max_bytes
-
-
-def get_byte_key(seq_id):
-    return int(get_byte_idx(seq_id) / max_bytes_per_key)
-
-
-def get_bit_idx(seq_id):
-    return int(seq_id % max_bits)
-
-
-def get_start_bit(seq_id):
-    return int(seq_id / max_bits) * max_bits
-
-
-def debug_seq(s):
-    print("for seq id: {}".format(s))
-    print("\taddr idx: {}".format(get_addr_idx(s)))
-    print("\tStart Bit: {}".format(get_start_bit(s)))
-    print("\tbyte key: {}".format(get_byte_key(s)))
-    print("\tbyte offset: {}".format(get_byte_idx(s)))
-    print("\tbit offset: {}".format(get_bit_idx(s)))
-
-
-def demo(app_id=None):
+def demo():
+    global app_id
 
     # Get Account from sandbox
     addr, sk = get_accounts()[0]
@@ -92,21 +61,18 @@ def demo(app_id=None):
         update_app(app_id, addr, sk)
         print("Updated app: {}".format(app_id))
 
-    seq_id = 1000000003
-
     tsig = TmplSig()
-
     cache = {}
-    import random
+
     seq = [random.randint(0, int(1e3)) for x in range(int(1e4))]
     for seq_id in seq:
         lsa = tsig.populate({"TMPL_ADDR_IDX": get_addr_idx(seq_id)})
 
         print("For seq {} address is {}".format(seq_id, lsa.address()))
 
-        sig_addr =  lsa.address()
+        sig_addr = lsa.address()
 
-        if sig_addr not in cache and not account_exists(app_id,sig_addr):
+        if sig_addr not in cache and not account_exists(app_id, sig_addr):
             # Create it
             sp = client.suggested_params()
 
@@ -140,8 +106,12 @@ def demo(app_id=None):
             bits = check_bits_set(app_id, get_start_bit(seq_id), sig_addr)
             cache[sig_addr] = bits
             print("Bits currently flipped to true for {}: {}".format(sig_addr, bits))
-            print("Number bits checked: {}".format(sum([len(v) for _,v in cache.items()])))
-            
+            print(
+                "Number bits checked: {}".format(
+                    sum([len(v) for _, v in cache.items()])
+                )
+            )
+
         except Exception as e:
             print("failed to flip bit :( {}".format(e))
 
@@ -277,5 +247,35 @@ def send(name, signed_group, debug=False):
     return wait_for_confirmation(client, txid, 4)
 
 
+# Sanity checks
+def get_addr_idx(seq_id):
+    return int(seq_id / max_bits)
+
+
+def get_byte_idx(seq_id):
+    return int(seq_id / bits_per_byte) % max_bytes
+
+
+def get_byte_key(seq_id):
+    return int(get_byte_idx(seq_id) / max_bytes_per_key)
+
+
+def get_bit_idx(seq_id):
+    return int(seq_id % max_bits)
+
+
+def get_start_bit(seq_id):
+    return int(seq_id / max_bits) * max_bits
+
+
+def debug_seq(s):
+    print("for seq id: {}".format(s))
+    print("\taddr idx: {}".format(get_addr_idx(s)))
+    print("\tStart Bit: {}".format(get_start_bit(s)))
+    print("\tbyte key: {}".format(get_byte_key(s)))
+    print("\tbyte offset: {}".format(get_byte_idx(s)))
+    print("\tbit offset: {}".format(get_bit_idx(s)))
+
+
 if __name__ == "__main__":
-    demo(1)
+    demo()

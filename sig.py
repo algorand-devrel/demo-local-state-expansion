@@ -3,11 +3,11 @@ from pyteal import *
 
 def sig_tmpl(
     admin_addr="PU2IEPAQDH5CCFWVRB3B5RU7APETCMF24574NA5PKMYSHM2ZZ3N3AIHJUI",
-    admin_app_id=1,
+    app_id=1,
     seed_amt=int(1e9),
 ):
     admin_addr = Addr(admin_addr)
-    admin_app_id = Int(admin_app_id)
+    admin_app_id = Int(app_id)
     seed_amt = Int(seed_amt)
 
     @Subroutine(TealType.uint64)
@@ -51,9 +51,9 @@ def sig_tmpl(
     )
 
 
-def get_sig_tmpl():
+def get_sig_tmpl(**kwargs):
     return compileTeal(
-        sig_tmpl(), mode=Mode.Signature, version=5, assembleConstants=True
+        sig_tmpl(**kwargs), mode=Mode.Signature, version=5, assembleConstants=True
     )
 
 
