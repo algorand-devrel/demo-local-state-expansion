@@ -51,6 +51,23 @@ max_bytes = max_bytes_per_key * max_keys
 max_bits = bits_per_byte * max_bytes # 16256
 ```
 
+We provide an example Smart Contract that flips the bit for a given sequence number.
+## Use
 
+Download and install the [sandbox](https://github.com/algorand/sandbox) and `./sandbox up dev`
 
+clone this directory
 
+```
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+then 
+
+```
+python demo.py
+```
+
+If it fails, look at the variables set at the top of demo.py and set them accordingly.
