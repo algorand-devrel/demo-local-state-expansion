@@ -31,12 +31,19 @@ max_bytes = max_bytes_per_key * max_keys
 max_bits = bits_per_byte * max_bytes
 
 
+# TmplSig is a class to hold the source of a template contract
+# populate can be called to get a LogicSig with the variables replaced
 class TmplSig:
+
     def __init__(self):
+        # Get compiled sig
         self.tmpl = get_sig_tmpl(
             app_id=app_id, seed_amt=seed_amt, admin_addr=admin_addr
         )
 
+    # Just string replace the var in the contract and recompile
+    # This can be done with a compiled contract but we're lazy in
+    # this demo
     def populate(self, vars):
         src = self.tmpl
         for k, v in vars.items():
@@ -58,6 +65,7 @@ def demo():
         app_id = create_app(addr, sk)
         print("Created app: {}".format(app_id))
     else:
+        # No need for this when you're not debugging
         update_app(app_id, addr, sk)
         print("Updated app: {}".format(app_id))
 
@@ -90,7 +98,6 @@ def demo():
             signed_optin = LogicSigTransaction(optin_txn, lsa)
 
             send("create", [signed_seed, signed_optin])
-            cache[sig_addr] = {}
 
         try:
             # Flip the bit
@@ -110,7 +117,6 @@ def demo():
 
             bits = check_bits_set(app_id, get_start_bit(seq_id), sig_addr)
             cache[sig_addr] = bits
-            # print("Bits currently flipped to true for {}: {}".format(sig_addr, bits))
 
             print(
                 "Accounts: {}, Bits Flipped: {}".format(
