@@ -1,5 +1,5 @@
 from pyteal import *
-from pytealutils import *
+from pytealutils.storage.blob import Blob
 import os
 
 # Maximum number of bytes for a blob

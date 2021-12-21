@@ -18,9 +18,8 @@ client = algod.AlgodClient(token, url)
 # To delete accounts in seq loop
 cleanup = False
 
-app_id = None  # Your app id
-seed_amt = int(1e9)  # How much to give the acct
-admin_addr = "PU2IEPAQDH5CCFWVRB3B5RU7APETCMF24574NA5PKMYSHM2ZZ3N3AIHJUI"  # Address used to admin
+app_id = None
+seed_amt = int(1e9)
 
 max_keys = 16
 max_bytes_per_key = 127
@@ -34,7 +33,7 @@ max_bits = bits_per_byte * max_bytes
 # TmplSig is a class to hold the source of a template contract
 # populate can be called to get a LogicSig with the variables replaced
 class TmplSig:
-    def __init__(self):
+    def __init__(self, app_id, admin_addr, seed_amt):
         # Get compiled sig
         self.tmpl = get_sig_tmpl(
             app_id=app_id, seed_amt=seed_amt, admin_addr=admin_addr
@@ -69,7 +68,7 @@ def demo():
         print("Updated app: {}".format(app_id))
 
     # Instantiate once, has ref to sig
-    tsig = TmplSig()
+    tsig = TmplSig(app_id, addr, seed_amt)
 
     # Lazy cache accts we see
     cache = {}
@@ -109,7 +108,7 @@ def demo():
                 accounts=[sig_addr],
             )
             signed_flip = flip_txn.sign(sk)
-            result = send("flip_bit", [signed_flip])
+            result = send("flip_bit", [signed_flip], debug=True)
 
             if "logs" in result:
                 print(result["logs"])
@@ -249,10 +248,10 @@ def send(name, signed_group, debug=False):
     print("Sending Transaction for {}".format(name))
 
     if debug:
-        # with open(name + ".msgp", "wb") as f:
-        #    f.write(
-        #        base64.b64decode(msgpack_encode(create_dryrun(client, signed_group)))
-        #    )
+        with open(name + ".msgp", "wb") as f:
+            f.write(
+                base64.b64decode(msgpack_encode(create_dryrun(client, signed_group)))
+            )
         with open(name + ".txns", "wb") as f:
             for tx in signed_group:
                 f.write(base64.b64decode(msgpack_encode(tx)))
