@@ -61,13 +61,13 @@ class TmplSig:
         bytecode_chunks = []
 
         src = self.tmpl
-        for k,v in self.map["template_labels"].items():
-            if v['bytes']:
+        for k, v in self.map["template_labels"].items():
+            if v["bytes"]:
                 src = src.replace(k, '""')
             else:
                 src = src.replace(k, "0")
 
-        res = base64.b64decode(client.compile(src)['result'])
+        res = base64.b64decode(client.compile(src)["result"])
 
         last = 0
         for v in self.map["template_labels"].values():
@@ -86,15 +86,12 @@ def demo():
     addr, sk = get_accounts()[0]
     print("Using {}".format(addr))
 
-
-
     # Create app if needed
     if app_id is None:
         # Dummy tmpl sig so we can get something before we create the app
         tsig = TmplSig(1, addr, seed_amt)
         app_id = create_app(addr, sk, seed_amt, tsig.get_bytecode_chunks())
         print("Created app: {}".format(app_id))
-
 
     # Instantiate once, has ref to sig
     tsig = TmplSig(app_id, addr, seed_amt)
@@ -114,7 +111,7 @@ def demo():
         lsa = tsig.populate(
             {
                 "TMPL_ADDR_IDX": get_addr_idx(seq_id),
-                "TMPL_EMITTER_ID": "0x"+emitter_id,
+                "TMPL_EMITTER_ID": "0x" + emitter_id,
             }
         )
 

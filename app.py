@@ -38,23 +38,21 @@ def approval(
     # start index of seq ids an account is holding
     acct_seq_start = bit_idx / Int(max_bits)
 
-    print("TMPL BYTECODE: ", tmpl_bytecode)
-
     @Subroutine(TealType.bytes)
     def get_sig_address(emitter: TealType.bytes, acct_seq_start: TealType.uint64):
         return Sha512_256(
-                Concat(
-                    Bytes("Program"),
-                    Bytes("base16", tmpl_bytecode[0]),
-                    encode_uvarint(acct_seq_start, Bytes("")),
-                    Bytes("base16", tmpl_bytecode[1]),
-                    encode_uvarint(
-                        Len(emitter), Bytes("")
-                    ),        # First write length of bytestring encoded as uvarint
-                    emitter,  # Now the actual bytestring
-                    Bytes("base16", tmpl_bytecode[2]),
-                )
+            Concat(
+                Bytes("Program"),
+                Bytes("base16", tmpl_bytecode[0]),
+                encode_uvarint(acct_seq_start, Bytes("")),
+                Bytes("base16", tmpl_bytecode[1]),
+                encode_uvarint(
+                    Len(emitter), Bytes("")
+                ),  # First write length of bytestring encoded as uvarint
+                emitter,  # Now the actual bytestring
+                Bytes("base16", tmpl_bytecode[2]),
             )
+        )
 
     @Subroutine(TealType.uint64)
     def optin():
@@ -92,7 +90,10 @@ def approval(
         b = ScratchVar()
         bit_byte_offset = bit_idx % Int(8)
         return Seq(
-            Assert(Txn.accounts[1] == get_sig_address(Txn.application_args[2], acct_seq_start)),
+            Assert(
+                Txn.accounts[1]
+                == get_sig_address(Txn.application_args[2], acct_seq_start)
+            ),
             b.store(blob.get_byte(Int(1), byte_offset)),
             blob.set_byte(
                 Int(1),
