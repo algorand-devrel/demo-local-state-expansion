@@ -9,11 +9,14 @@ max_bits = max_bytes * 8
 action_lookup = Bytes("lookup")
 action_flip_bit = Bytes("flip_bit")
 
-admin_addr = Addr("PU2IEPAQDH5CCFWVRB3B5RU7APETCMF24574NA5PKMYSHM2ZZ3N3AIHJUI")
-seed_amt = Int(int(1e9))
+admin_addr = "PU2IEPAQDH5CCFWVRB3B5RU7APETCMF24574NA5PKMYSHM2ZZ3N3AIHJUI"
+seed_amt = int(1e9)
 
 
-def approval():
+def approval(admin_addr=admin_addr, seed_amt=seed_amt):
+
+    seed_amt = Int(seed_amt)
+    admin_addr = Addr(admin_addr)
 
     blob = Blob()
 
@@ -95,9 +98,9 @@ def clear():
     return Return(Int(1))
 
 
-def get_approval_src():
+def get_approval_src(**kwargs):
     return compileTeal(
-        approval(), mode=Mode.Application, version=5, assembleConstants=True
+        approval(**kwargs), mode=Mode.Application, version=5, assembleConstants=True
     )
 
 

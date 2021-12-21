@@ -60,7 +60,7 @@ def demo():
 
     # Create app if needed
     if app_id is None:
-        app_id = create_app(addr, sk)
+        app_id = create_app(addr, sk, seed_amt)
         print("Created app: {}".format(app_id))
     else:
         # No need for this when you're not debugging
@@ -108,7 +108,7 @@ def demo():
                 accounts=[sig_addr],
             )
             signed_flip = flip_txn.sign(sk)
-            result = send("flip_bit", [signed_flip], debug=True)
+            result = send("flip_bit", [signed_flip])
 
             if "logs" in result:
                 print(result["logs"])
@@ -213,9 +213,9 @@ def update_app(id, addr, sk):
     return wait_for_confirmation(client, txid, 4)
 
 
-def create_app(addr, sk):
+def create_app(addr, sk, seed_amt):
     # Read in approval teal source && compile
-    app_result = client.compile(get_approval_src())
+    app_result = client.compile(get_approval_src(admin_addr=addr, seed_amt=seed_amt))
     app_bytes = base64.b64decode(app_result["result"])
 
     # Read in clear teal source && compile
