@@ -7,8 +7,12 @@ def sig_tmpl(
     seed_amt=int(1e9),
 ):
     admin_addr = Addr(admin_addr)
-    admin_app_id = Int(app_id)
     seed_amt = Int(seed_amt)
+
+    # We encode the app id as an 8 byte integer to ensure its a known size
+    # Otherwise the uvarint encoding may produce a different byte offset
+    # for the template variables
+    admin_app_id = Btoi(Bytes(app_id.to_bytes(8, "big")))
 
     @Subroutine(TealType.uint64)
     def init():
@@ -26,24 +30,24 @@ def sig_tmpl(
 
     @Subroutine(TealType.uint64)
     def close():
-        algo_close = Gtxn[1]
         closeout = Gtxn[0]
-
-        # TODO: actually check that we cosigned this transaction
+        algo_close = Gtxn[1]
         return And(
-            algo_close.type_enum() == TxnType.Payment,
-            algo_close.receiver() == admin_addr,
-            algo_close.close_remainder_to() == admin_addr,
-            algo_close.amount() == Int(int(0)),
             closeout.type_enum() == TxnType.ApplicationCall,
             closeout.on_completion() == OnComplete.CloseOut,
             closeout.application_id() == admin_app_id,
+            algo_close.type_enum() == TxnType.Payment,
+            algo_close.receiver() == admin_addr,
+            algo_close.close_remainder_to() == admin_addr,
+            algo_close.sender() == admin_addr,
+            algo_close.amount() == Int(int(0)),
         )
 
     return Seq(
         # Just putting adding this as a tmpl var to make the address unique and deterministic
         # We don't actually care what the value is, pop it
         Pop(Tmpl.Int("TMPL_ADDR_IDX")),
+        Pop(Tmpl.Bytes("TMPL_EMITTER_ID")),
         Cond(
             [Global.group_size() != Int(2), Reject()],
             [Int(1), Return(Or(init(), close()))],

@@ -1,5 +1,7 @@
 from pyteal import *
+from typing import Tuple
 from pytealutils.storage.blob import Blob
+from pytealutils.string import encode_uvarint
 import os
 
 # Maximum number of bytes for a blob
@@ -13,7 +15,11 @@ admin_addr = "PU2IEPAQDH5CCFWVRB3B5RU7APETCMF24574NA5PKMYSHM2ZZ3N3AIHJUI"
 seed_amt = int(1e9)
 
 
-def approval(admin_addr=admin_addr, seed_amt=seed_amt):
+def approval(
+    admin_addr: str = admin_addr,
+    seed_amt: int = seed_amt,
+    tmpl_bytecode: Tuple[str, str, str] = None,
+):
 
     seed_amt = Int(seed_amt)
     admin_addr = Addr(admin_addr)
@@ -28,6 +34,27 @@ def approval(admin_addr=admin_addr, seed_amt=seed_amt):
 
     # Offset into the byte of the bit
     bit_offset = bit_idx % Int(max_bits)
+
+    # start index of seq ids an account is holding
+    acct_seq_start = bit_idx / Int(max_bits)
+
+    print("TMPL BYTECODE: ", tmpl_bytecode)
+
+    @Subroutine(TealType.bytes)
+    def get_sig_address(emitter: TealType.bytes, acct_seq_start: TealType.uint64):
+        return Sha512_256(
+                Concat(
+                    Bytes("Program"),
+                    Bytes("base16", tmpl_bytecode[0]),
+                    encode_uvarint(acct_seq_start, Bytes("")),
+                    Bytes("base16", tmpl_bytecode[1]),
+                    encode_uvarint(
+                        Len(emitter), Bytes("")
+                    ),        # First write length of bytestring encoded as uvarint
+                    emitter,  # Now the actual bytestring
+                    Bytes("base16", tmpl_bytecode[2]),
+                )
+            )
 
     @Subroutine(TealType.uint64)
     def optin():
@@ -64,11 +91,11 @@ def approval(admin_addr=admin_addr, seed_amt=seed_amt):
     def flip_bit():
         b = ScratchVar()
         bit_byte_offset = bit_idx % Int(8)
-        acct_idx = Int(1)
         return Seq(
-            b.store(blob.get_byte(acct_idx, byte_offset)),
+            Assert(Txn.accounts[1] == get_sig_address(Txn.application_args[2], acct_seq_start)),
+            b.store(blob.get_byte(Int(1), byte_offset)),
             blob.set_byte(
-                acct_idx,
+                Int(1),
                 byte_offset,
                 SetBit(
                     b.load(),

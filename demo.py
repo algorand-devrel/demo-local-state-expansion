@@ -1,6 +1,8 @@
 import base64
 import random
+import json
 
+from typing import Tuple
 from algosdk.v2client import algod
 from algosdk.encoding import msgpack_encode
 from algosdk.future.transaction import *
@@ -34,10 +36,13 @@ max_bits = bits_per_byte * max_bytes
 # populate can be called to get a LogicSig with the variables replaced
 class TmplSig:
     def __init__(self, app_id, admin_addr, seed_amt):
-        # Get compiled sig
+        # Get template logic sig
         self.tmpl = get_sig_tmpl(
             app_id=app_id, seed_amt=seed_amt, admin_addr=admin_addr
         )
+
+        # Get map of bytecode positions for compiled version
+        self.map = json.loads(open("sig.tmpl.teal.map.json", "r").read())
 
     # Just string replace the var in the contract and recompile
     # This can be done with a compiled contract but we're lazy in
@@ -50,6 +55,29 @@ class TmplSig:
 
         return LogicSigAccount(base64.b64decode(res["result"]))
 
+    # This is _not_ meant to be generic
+    # we know we have 3 chunks
+    def get_bytecode_chunks(self) -> Tuple[str, str, str]:
+        bytecode_chunks = []
+
+        src = self.tmpl
+        for k,v in self.map["template_labels"].items():
+            if v['bytes']:
+                src = src.replace(k, '""')
+            else:
+                src = src.replace(k, "0")
+
+        res = base64.b64decode(client.compile(src)['result'])
+
+        last = 0
+        for v in self.map["template_labels"].values():
+            bytecode_chunks.append(res[last : v["position"]].hex())
+            last = v["position"] + 1  # account for 0 byte
+
+        bytecode_chunks.append(res[last:].hex())
+
+        return tuple(bytecode_chunks)
+
 
 def demo():
     global app_id
@@ -58,30 +86,43 @@ def demo():
     addr, sk = get_accounts()[0]
     print("Using {}".format(addr))
 
+
+
     # Create app if needed
     if app_id is None:
-        app_id = create_app(addr, sk, seed_amt)
+        # Dummy tmpl sig so we can get something before we create the app
+        tsig = TmplSig(1, addr, seed_amt)
+        app_id = create_app(addr, sk, seed_amt, tsig.get_bytecode_chunks())
         print("Created app: {}".format(app_id))
-    else:
-        # No need for this when you're not debugging
-        update_app(app_id, addr, sk)
-        print("Updated app: {}".format(app_id))
+
 
     # Instantiate once, has ref to sig
     tsig = TmplSig(app_id, addr, seed_amt)
+
+    # No need for this when you're not debugging
+    update_app(app_id, addr, sk, tsig.get_bytecode_chunks())
+    print("Updated app: {}".format(app_id))
 
     # Lazy cache accts we see
     cache = {}
 
     # Get some random sequence
-    seq = [random.randint(0, int(1e6)) for x in range(1000)]
+    seq = [random.randint(0, int(1e3)) for x in range(1000)]
+    emitter_id = "deadbeef" * 4
 
     for seq_id in seq:
-        lsa = tsig.populate({"TMPL_ADDR_IDX": get_addr_idx(seq_id)})
+        lsa = tsig.populate(
+            {
+                "TMPL_ADDR_IDX": get_addr_idx(seq_id),
+                "TMPL_EMITTER_ID": "0x"+emitter_id,
+            }
+        )
 
         print("For seq {} address is {}".format(seq_id, lsa.address()))
 
         sig_addr = lsa.address()
+
+        print(lsa.lsig.logic.hex())
 
         if sig_addr not in cache and not account_exists(app_id, sig_addr):
             # Create it
@@ -104,7 +145,7 @@ def demo():
                 addr,
                 sp,
                 app_id,
-                ["flip_bit", seq_id.to_bytes(8, "big")],
+                ["flip_bit", seq_id.to_bytes(8, "big"), bytes.fromhex(emitter_id)],
                 accounts=[sig_addr],
             )
             signed_flip = flip_txn.sign(sk)
@@ -189,9 +230,12 @@ def check_bits_set(app_id, start, addr):
     return bits_set
 
 
-def update_app(id, addr, sk):
+def update_app(id, addr, sk, bytecode):
     # Read in approval teal source && compile
-    app_result = client.compile(get_approval_src())
+    print(bytecode)
+    app_result = client.compile(
+        get_approval_src(admin_addr=addr, seed_amt=seed_amt, tmpl_bytecode=bytecode)
+    )
     app_bytes = base64.b64decode(app_result["result"])
 
     # Read in clear teal source && compile
@@ -210,12 +254,14 @@ def update_app(id, addr, sk):
     txid = client.send_transaction(signed_txn)
 
     # Wait for the result so we can return the app id
-    return wait_for_confirmation(client, txid, 4)
+    print(wait_for_confirmation(client, txid, 4))
 
 
-def create_app(addr, sk, seed_amt):
+def create_app(addr, sk, seed_amt, bytecode):
     # Read in approval teal source && compile
-    app_result = client.compile(get_approval_src(admin_addr=addr, seed_amt=seed_amt))
+    app_result = client.compile(
+        get_approval_src(admin_addr=addr, seed_amt=seed_amt, tmpl_bytecode=bytecode)
+    )
     app_bytes = base64.b64decode(app_result["result"])
 
     # Read in clear teal source && compile
