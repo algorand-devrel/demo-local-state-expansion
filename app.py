@@ -8,7 +8,7 @@ from typing import Dict, Union
 from pyteal import *
 from algosdk.future.transaction import LogicSigAccount
 from pytealutils.storage import LocalBlob
-from pytealutils.strings import encode_uvarint 
+from pytealutils.strings import encode_uvarint
 
 # Maximum number of bytes for a blob
 max_bytes = 127 * 16
@@ -19,7 +19,6 @@ action_flip_bit = Bytes("flip_bit")
 
 admin_addr = "CXDSSP2ZN2BLXG2P2FZ7YQNSBH7LX4723RJ6PW7IETSIO2UZE5GMIBZXXI"
 seed_amt = int(1e9)
-
 
 
 class TmplSig:
@@ -34,8 +33,12 @@ class TmplSig:
             self.map = json.loads(f.read())
 
         self.src = base64.b64decode(self.map["bytecode"])
-        self.sorted = dict(sorted(self.map['template_labels'].items(), key=lambda item: item[1]['position']))
-
+        self.sorted = dict(
+            sorted(
+                self.map["template_labels"].items(),
+                key=lambda item: item[1]["position"],
+            )
+        )
 
     def populate(self, values: Dict[str, Union[str, int]]) -> LogicSigAccount:
         """populate uses the map to fill in the variable of the bytecode and returns a logic sig with the populated bytecode"""
@@ -45,20 +48,20 @@ class TmplSig:
         shift = 0
         for k, v in self.sorted.items():
             if k in values:
-                pos = v['position'] + shift
-                if v['bytes']:
+                pos = v["position"] + shift
+                if v["bytes"]:
                     val = bytes.fromhex(values[k])
                     lbyte = uvarint.encode(len(val))
                     # -1 to account for the existing 00 byte for length
-                    shift += (len(lbyte)-1) + len(val)
+                    shift += (len(lbyte) - 1) + len(val)
                     # +1 to overwrite the existing 00 byte for length
-                    contract[pos:pos+1] = lbyte + val
+                    contract[pos : pos + 1] = lbyte + val
                 else:
                     val = uvarint.encode(values[k])
                     # -1 to account for existing 00 byte
                     shift += len(val) - 1
-                    #+1 to overwrite existing 00 byte
-                    contract[pos:pos+1] = val
+                    # +1 to overwrite existing 00 byte
+                    contract[pos : pos + 1] = val
 
         # Create a new LogicSigAccount given the populated bytecode
         return LogicSigAccount(bytes(contract))
@@ -66,11 +69,11 @@ class TmplSig:
     def get_bytecode_chunk(self, idx: int) -> Bytes:
         start = 0
         if idx > 0:
-            start = list(self.sorted.values())[idx-1]["position"] + 1
+            start = list(self.sorted.values())[idx - 1]["position"] + 1
 
-        stop = len(self.src) 
+        stop = len(self.src)
         if idx < len(self.sorted):
-            stop = list(self.sorted.values())[idx]["position"] 
+            stop = list(self.sorted.values())[idx]["position"]
 
         chunk = self.src[start:stop]
         return Bytes(chunk)
@@ -100,13 +103,15 @@ def approval(
     acct_seq_start = bit_idx / Int(max_bits)
 
     @Subroutine(TealType.bytes)
-    def get_sig_address( acct_seq_start: TealType.uint64, emitter: TealType.bytes):
+    def get_sig_address(acct_seq_start: TealType.uint64, emitter: TealType.bytes):
+        # We could iterate over N items and encode them for a more general interface
+        # but we inline them directly here
         return Sha512_256(
             Concat(
                 Bytes("Program"),
                 tmpl_sig.get_bytecode_chunk(0),
-                encode_uvarint(Int(8), Bytes("")),
-                Itob(Global.current_application_id()),
+                encode_uvarint(Int(8), Bytes("")), # the app id is stored as the full 8 byte uint64 
+                Itob(Global.current_application_id()), 
                 tmpl_sig.get_bytecode_chunk(1),
                 encode_uvarint(acct_seq_start, Bytes("")),
                 tmpl_sig.get_bytecode_chunk(2),

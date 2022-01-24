@@ -1,24 +1,27 @@
 from typing import List
 
+
 class DryrunStackValue:
     def __init__(self, v):
-        self.type = v['type']
-        self.bytes = v['bytes']
-        self.int = v['uint']
+        self.type = v["type"]
+        self.bytes = v["bytes"]
+        self.int = v["uint"]
 
     def __str__(self):
         if self.type == 1:
             return self.bytes
         return self.int
 
+
 class DryrunTraceLine:
     def __init__(self, tl):
-        self.line = tl['line']
-        self.pc = tl['pc']
-        self.stack = [DryrunStackValue(sv) for sv in tl['stack']]
+        self.line = tl["line"]
+        self.pc = tl["pc"]
+        self.stack = [DryrunStackValue(sv) for sv in tl["stack"]]
 
     def trace_line(self):
         return (self.line, [sv.__str__() for sv in self.stack])
+
 
 class DryrunTrace:
     def __init__(self, trace):
@@ -26,6 +29,7 @@ class DryrunTrace:
 
     def get_trace(self) -> List[str]:
         return [line.trace_line() for line in self.trace]
+
 
 class DryrunTransactionResult:
     def __init__(self, dr):
@@ -49,22 +53,24 @@ class DryrunTransactionResult:
     def app_trace(self):
         lines = []
         for line in self.app_call_trace.get_trace():
-            src_line = self.disassembly[line[0]-1]
-            lines.append("{}{}\t{}".format(src_line, " "*(16-len(src_line)), line[1]))
+            src_line = self.disassembly[line[0] - 1]
+            lines.append(
+                "{}{}\t{}".format(src_line, " " * (16 - len(src_line)), line[1])
+            )
         return "\n".join(lines)
-    
+
     def lsig_trace(self):
         lines = []
         for line in self.logic_sig_trace.get_trace():
-            src_line = self.disassembly[line[0]-1]
-            lines.append("{}{}\t{}".format(src_line, " "*(16-len(src_line)), line[1]))
+            src_line = self.disassembly[line[0] - 1]
+            lines.append(
+                "{}{}\t{}".format(src_line, " " * (16 - len(src_line)), line[1])
+            )
         return "\n".join(lines)
-
-
 
 
 class DryrunResponse:
     def __init__(self, drrjson):
-        self.error = drrjson['error']
-        self.protocol = drrjson['protocol-version']
-        self.txns = [DryrunTransactionResult(txn) for txn in drrjson['txns']]
+        self.error = drrjson["error"]
+        self.protocol = drrjson["protocol-version"]
+        self.txns = [DryrunTransactionResult(txn) for txn in drrjson["txns"]]

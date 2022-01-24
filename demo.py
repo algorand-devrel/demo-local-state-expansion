@@ -62,7 +62,7 @@ def demo():
     for seq_id in seq:
         lsa = tsig.populate(
             {
-                "TMPL_APP_ID":app_id.to_bytes(8, 'big').hex(),
+                "TMPL_APP_ID": app_id.to_bytes(8, "big").hex(),
                 "TMPL_ADDR_IDX": get_addr_idx(seq_id),
                 "TMPL_EMITTER_ID": emitter_id,
             }
@@ -214,7 +214,7 @@ def send(name, signed_group, debug=False):
     print("Sending Transaction for {}".format(name))
 
     if debug:
-        #drr = DryrunResponse(client.dryrun(create_dryrun(client, signed_group)))
+        # drr = DryrunResponse(client.dryrun(create_dryrun(client, signed_group)))
         with open(name + ".msgp", "wb") as f:
             f.write(
                 base64.b64decode(msgpack_encode(create_dryrun(client, signed_group)))
@@ -225,7 +225,6 @@ def send(name, signed_group, debug=False):
 
     txid = client.send_transactions(signed_group)
     return wait_for_confirmation(client, txid, 4)
-
 
 
 # Sanity checks
