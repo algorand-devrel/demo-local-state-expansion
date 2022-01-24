@@ -1,0 +1,19 @@
+{
+  "name": "sig.tmpl.teal",
+  "version": 5,
+  "source": "",
+  "bytecode": "BSAEAQIABiYCIBXHKT9ZboK7m0/Rc/xBsgn+u/P63FPn2+gk5IdqmSdMAIEASIAASDIEIxNAAA0iQAABAIgAB4gALhFDJEMzABAiEjMAACgSEDMACIGAlOvcAxIQMwEQJRIQMwEZIhIQMwEYKRcSEIkzABAlEjMAGSMSEDMAGCkXEhAzARAiEhAzAQcoEhAzAQkoEhAzAQAoEhAzAQgkEhCJ",
+  "template_labels": {
+    "TMPL_ADDR_IDX": { "source_line": 4, "position": 44, "bytes": false },
+    "TMPL_APP_ID": { "source_line": 3, "position": 42, "bytes": true },
+    "TMPL_EMITTER_ID": { "source_line": 6, "position": 47, "bytes": true }
+  },
+  "label_map": { "close_1": 63, "init_0": 60, "main_l3": 56, "main_l4": 52 },
+  "line_map": [
+    0, 1, 7, 43, 45, 46, 48, 49, 51, 52, 53, 56, 57, 60, 0, 61, 64, 67, 68, 0,
+    69, 70, 0, 0, 0, 71, 74, 75, 76, 79, 80, 81, 82, 85, 91, 92, 93, 96, 97, 98,
+    99, 102, 103, 104, 105, 108, 109, 110, 111, 112, 0, 0, 0, 113, 116, 117,
+    118, 121, 122, 123, 124, 127, 128, 129, 130, 131, 134, 135, 136, 137, 140,
+    141, 142, 143, 146, 147, 148, 149, 152, 153, 154, 155, 158, 159, 160, 161
+  ]
+}

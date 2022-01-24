@@ -1,16 +1,17 @@
 import base64
 import random
 import json
+import uvarint
 
-from typing import Tuple
+from typing import Tuple, Dict
 from algosdk.v2client import algod
 from algosdk.encoding import msgpack_encode
 from algosdk.future.transaction import *
 
+from dryrun import DryrunResponse
 from sandbox import get_accounts
 
-from app import get_clear_src, get_approval_src
-from sig import get_sig_tmpl
+from app import get_clear_src, get_approval_src, TmplSig
 
 token = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 url = "http://localhost:4001"
@@ -34,49 +35,6 @@ max_bits = bits_per_byte * max_bytes
 
 # TmplSig is a class to hold the source of a template contract
 # populate can be called to get a LogicSig with the variables replaced
-class TmplSig:
-    def __init__(self, app_id, admin_addr, seed_amt):
-        # Get template logic sig
-        self.tmpl = get_sig_tmpl(
-            app_id=app_id, seed_amt=seed_amt, admin_addr=admin_addr
-        )
-
-        # Get map of bytecode positions for compiled version
-        self.map = json.loads(open("sig.tmpl.teal.map.json", "r").read())
-
-    # Just string replace the var in the contract and recompile
-    # This can be done with a compiled contract but we're lazy in
-    # this demo
-    def populate(self, vars):
-        src = self.tmpl
-        for k, v in vars.items():
-            src = src.replace(k, str(v))
-        res = client.compile(src)
-
-        return LogicSigAccount(base64.b64decode(res["result"]))
-
-    # This is _not_ meant to be generic
-    # we know we have 3 chunks
-    def get_bytecode_chunks(self) -> Tuple[str, str, str]:
-        bytecode_chunks = []
-
-        src = self.tmpl
-        for k, v in self.map["template_labels"].items():
-            if v["bytes"]:
-                src = src.replace(k, '""')
-            else:
-                src = src.replace(k, "0")
-
-        res = base64.b64decode(client.compile(src)["result"])
-
-        last = 0
-        for v in self.map["template_labels"].values():
-            bytecode_chunks.append(res[last : v["position"]].hex())
-            last = v["position"] + 1  # account for 0 byte
-
-        bytecode_chunks.append(res[last:].hex())
-
-        return tuple(bytecode_chunks)
 
 
 def demo():
@@ -86,19 +44,15 @@ def demo():
     addr, sk = get_accounts()[0]
     print("Using {}".format(addr))
 
+    tsig = TmplSig("sig")
+
+
+    print(tsig.populate({"TMPL_ADDR_IDX":1, "TMPL_EMITTER_ID": "abc213"}))
     # Create app if needed
     if app_id is None:
         # Dummy tmpl sig so we can get something before we create the app
-        tsig = TmplSig(1, addr, seed_amt)
-        app_id = create_app(addr, sk, seed_amt, tsig.get_bytecode_chunks())
+        app_id = create_app(addr, sk, seed_amt, tsig)
         print("Created app: {}".format(app_id))
-
-    # Instantiate once, has ref to sig
-    tsig = TmplSig(app_id, addr, seed_amt)
-
-    # No need for this when you're not debugging
-    update_app(app_id, addr, sk, tsig.get_bytecode_chunks())
-    print("Updated app: {}".format(app_id))
 
     # Lazy cache accts we see
     cache = {}
@@ -110,16 +64,15 @@ def demo():
     for seq_id in seq:
         lsa = tsig.populate(
             {
+                "TMPL_APP_ID":app_id.to_bytes(8, 'big').hex(),
                 "TMPL_ADDR_IDX": get_addr_idx(seq_id),
-                "TMPL_EMITTER_ID": "0x" + emitter_id,
+                "TMPL_EMITTER_ID": emitter_id,
             }
         )
 
         print("For seq {} address is {}".format(seq_id, lsa.address()))
 
         sig_addr = lsa.address()
-
-        print(lsa.lsig.logic.hex())
 
         if sig_addr not in cache and not account_exists(app_id, sig_addr):
             # Create it
@@ -134,7 +87,6 @@ def demo():
             signed_optin = LogicSigTransaction(optin_txn, lsa)
 
             send("create", [signed_seed, signed_optin])
-
         try:
             # Flip the bit
             sp = client.suggested_params()
@@ -227,37 +179,10 @@ def check_bits_set(app_id, start, addr):
     return bits_set
 
 
-def update_app(id, addr, sk, bytecode):
-    # Read in approval teal source && compile
-    print(bytecode)
-    app_result = client.compile(
-        get_approval_src(admin_addr=addr, seed_amt=seed_amt, tmpl_bytecode=bytecode)
-    )
-    app_bytes = base64.b64decode(app_result["result"])
-
-    # Read in clear teal source && compile
-    clear_result = client.compile(get_clear_src())
-    clear_bytes = base64.b64decode(clear_result["result"])
-
-    # Get suggested params from network
-    sp = client.suggested_params()
-    # Create the transaction
-    update_txn = ApplicationUpdateTxn(addr, sp, id, app_bytes, clear_bytes)
-
-    # Sign it
-    signed_txn = update_txn.sign(sk)
-
-    # Ship it
-    txid = client.send_transaction(signed_txn)
-
-    # Wait for the result so we can return the app id
-    print(wait_for_confirmation(client, txid, 4))
-
-
-def create_app(addr, sk, seed_amt, bytecode):
+def create_app(addr, sk, seed_amt, tmpl):
     # Read in approval teal source && compile
     app_result = client.compile(
-        get_approval_src(admin_addr=addr, seed_amt=seed_amt, tmpl_bytecode=bytecode)
+        get_approval_src(admin_addr=addr, seed_amt=seed_amt, tmpl_sig=tmpl)
     )
     app_bytes = base64.b64decode(app_result["result"])
 
@@ -291,6 +216,7 @@ def send(name, signed_group, debug=False):
     print("Sending Transaction for {}".format(name))
 
     if debug:
+        #drr = DryrunResponse(client.dryrun(create_dryrun(client, signed_group)))
         with open(name + ".msgp", "wb") as f:
             f.write(
                 base64.b64decode(msgpack_encode(create_dryrun(client, signed_group)))
@@ -301,6 +227,7 @@ def send(name, signed_group, debug=False):
 
     txid = client.send_transactions(signed_group)
     return wait_for_confirmation(client, txid, 4)
+
 
 
 # Sanity checks

@@ -1,8 +1,14 @@
-from pyteal import *
-from typing import Tuple
-from pytealutils.storage.blob import Blob
-from pytealutils.string import encode_uvarint
+import json
+import base64
+import uvarint
 import os
+
+from typing import Dict, Union
+
+from pyteal import *
+from algosdk.future.transaction import LogicSigAccount
+from pytealutils.storage import LocalBlob
+from pytealutils.strings import encode_uvarint 
 
 # Maximum number of bytes for a blob
 max_bytes = 127 * 16
@@ -11,20 +17,75 @@ max_bits = max_bytes * 8
 action_lookup = Bytes("lookup")
 action_flip_bit = Bytes("flip_bit")
 
-admin_addr = "PU2IEPAQDH5CCFWVRB3B5RU7APETCMF24574NA5PKMYSHM2ZZ3N3AIHJUI"
+admin_addr = "CXDSSP2ZN2BLXG2P2FZ7YQNSBH7LX4723RJ6PW7IETSIO2UZE5GMIBZXXI"
 seed_amt = int(1e9)
+
+
+
+class TmplSig:
+    """KeySig class reads in a json map containing assembly details of a template smart signature and allows you to populate it with the variables
+    In this case we are only interested in a single variable, the key which is a byte string to make the address unique.
+    In this demo we're using random strings but in practice you can choose something meaningful to your application
+    """
+
+    def __init__(self, name):
+        # Read the source map
+        with open("{}.json".format(name)) as f:
+            self.map = json.loads(f.read())
+
+        self.src = base64.b64decode(self.map["bytecode"])
+        self.sorted = dict(sorted(self.map['template_labels'].items(), key=lambda item: item[1]['position']))
+
+
+    def populate(self, values: Dict[str, Union[str, int]]) -> LogicSigAccount:
+        """populate uses the map to fill in the variable of the bytecode and returns a logic sig with the populated bytecode"""
+        # Get the template source
+        contract = list(base64.b64decode(self.map["bytecode"]))
+
+        shift = 0
+        for k, v in self.sorted.items():
+            if k in values:
+                pos = v['position'] + shift
+                if v['bytes']:
+                    val = bytes.fromhex(values[k])
+                    lbyte = uvarint.encode(len(val))
+                    # -1 to account for the existing 00 byte for length
+                    shift += (len(lbyte)-1) + len(val)
+                    # +1 to overwrite the existing 00 byte for length
+                    contract[pos:pos+1] = lbyte + val
+                else:
+                    val = uvarint.encode(values[k])
+                    # -1 to account for existing 00 byte
+                    shift += len(val) - 1
+                    #+1 to overwrite existing 00 byte
+                    contract[pos:pos+1] = val
+
+        # Create a new LogicSigAccount given the populated bytecode
+        return LogicSigAccount(bytes(contract))
+
+    def get_bytecode_chunk(self, idx: int) -> Bytes:
+        start = 0
+        if idx > 0:
+            start = list(self.sorted.values())[idx-1]["position"] + 1
+
+        stop = len(self.src) 
+        if idx < len(self.sorted):
+            stop = list(self.sorted.values())[idx]["position"] 
+
+        chunk = self.src[start:stop]
+        return Bytes(chunk)
 
 
 def approval(
     admin_addr: str = admin_addr,
     seed_amt: int = seed_amt,
-    tmpl_bytecode: Tuple[str, str, str] = None,
+    tmpl_sig: TmplSig = None,
 ):
 
     seed_amt = Int(seed_amt)
     admin_addr = Addr(admin_addr)
 
-    blob = Blob()
+    blob = LocalBlob()
 
     # The bit index (seq) should always be the second arg
     bit_idx = Btoi(Txn.application_args[1])
@@ -39,18 +100,21 @@ def approval(
     acct_seq_start = bit_idx / Int(max_bits)
 
     @Subroutine(TealType.bytes)
-    def get_sig_address(emitter: TealType.bytes, acct_seq_start: TealType.uint64):
+    def get_sig_address( acct_seq_start: TealType.uint64, emitter: TealType.bytes):
         return Sha512_256(
             Concat(
                 Bytes("Program"),
-                Bytes("base16", tmpl_bytecode[0]),
+                tmpl_sig.get_bytecode_chunk(0),
+                encode_uvarint(Int(8), Bytes("")),
+                Itob(Global.current_application_id()),
+                tmpl_sig.get_bytecode_chunk(1),
                 encode_uvarint(acct_seq_start, Bytes("")),
-                Bytes("base16", tmpl_bytecode[1]),
+                tmpl_sig.get_bytecode_chunk(2),
                 encode_uvarint(
                     Len(emitter), Bytes("")
                 ),  # First write length of bytestring encoded as uvarint
                 emitter,  # Now the actual bytestring
-                Bytes("base16", tmpl_bytecode[2]),
+                tmpl_sig.get_bytecode_chunk(3),
             )
         )
 
@@ -92,7 +156,7 @@ def approval(
         return Seq(
             Assert(
                 Txn.accounts[1]
-                == get_sig_address(Txn.application_args[2], acct_seq_start)
+                == get_sig_address(acct_seq_start, Txn.application_args[2])
             ),
             b.store(blob.get_byte(Int(1), byte_offset)),
             blob.set_byte(

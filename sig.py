@@ -2,8 +2,7 @@ from pyteal import *
 
 
 def sig_tmpl(
-    admin_addr="PU2IEPAQDH5CCFWVRB3B5RU7APETCMF24574NA5PKMYSHM2ZZ3N3AIHJUI",
-    app_id=1,
+    admin_addr="CXDSSP2ZN2BLXG2P2FZ7YQNSBH7LX4723RJ6PW7IETSIO2UZE5GMIBZXXI",
     seed_amt=int(1e9),
 ):
     admin_addr = Addr(admin_addr)
@@ -12,7 +11,7 @@ def sig_tmpl(
     # We encode the app id as an 8 byte integer to ensure its a known size
     # Otherwise the uvarint encoding may produce a different byte offset
     # for the template variables
-    admin_app_id = Btoi(Bytes(app_id.to_bytes(8, "big")))
+    admin_app_id = Btoi(Tmpl.Bytes("TMPL_APP_ID"))
 
     @Subroutine(TealType.uint64)
     def init():
