@@ -44,13 +44,11 @@ def demo():
     addr, sk = get_accounts()[0]
     print("Using {}".format(addr))
 
+    # reads from sig.json
     tsig = TmplSig("sig")
 
-
-    print(tsig.populate({"TMPL_ADDR_IDX":1, "TMPL_EMITTER_ID": "abc213"}))
     # Create app if needed
     if app_id is None:
-        # Dummy tmpl sig so we can get something before we create the app
         app_id = create_app(addr, sk, seed_amt, tsig)
         print("Created app: {}".format(app_id))
 
