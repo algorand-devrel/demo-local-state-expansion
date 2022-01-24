@@ -64,10 +64,10 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-then 
+then set the admin_addr in the sig.py/app.py files
 
-```
+```sh
+python sig.py # Create the sig.tmpl.teal file 
+goal clerk compile -m sig.tmpl.teal # prepare the source map we use in the demo
 python demo.py
 ```
-
-If it fails, look at the variables set at the top of demo.py and set them accordingly.
