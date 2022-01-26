@@ -22,6 +22,7 @@ client = algod.AlgodClient(token, url)
 cleanup = False
 
 app_id = None
+admin_addr = "CXDSSP2ZN2BLXG2P2FZ7YQNSBH7LX4723RJ6PW7IETSIO2UZE5GMIBZXXI"
 seed_amt = int(1e9)
 
 max_keys = 16
@@ -62,11 +63,15 @@ def demo():
     for seq_id in seq:
         lsa = tsig.populate(
             {
-                "TMPL_APP_ID": app_id.to_bytes(8, "big").hex(),
+                "TMPL_SEED_AMT": seed_amt,
+                "TMPL_APP_ID": app_id,
                 "TMPL_ADDR_IDX": get_addr_idx(seq_id),
                 "TMPL_EMITTER_ID": emitter_id,
             }
         )
+
+        # with open("sig.bin", "wb") as f:
+        #    f.write(lsa.lsig.logic)
 
         print("For seq {} address is {}".format(seq_id, lsa.address()))
 
@@ -215,6 +220,7 @@ def send(name, signed_group, debug=False):
 
     if debug:
         # drr = DryrunResponse(client.dryrun(create_dryrun(client, signed_group)))
+        # print(drr.txns[0].app_trace())
         with open(name + ".msgp", "wb") as f:
             f.write(
                 base64.b64decode(msgpack_encode(create_dryrun(client, signed_group)))

@@ -17,9 +17,6 @@ max_bits = max_bytes * 8
 action_lookup = Bytes("lookup")
 action_flip_bit = Bytes("flip_bit")
 
-admin_addr = "CXDSSP2ZN2BLXG2P2FZ7YQNSBH7LX4723RJ6PW7IETSIO2UZE5GMIBZXXI"
-seed_amt = int(1e9)
-
 
 class TmplSig:
     """KeySig class reads in a json map containing assembly details of a template smart signature and allows you to populate it with the variables
@@ -80,8 +77,8 @@ class TmplSig:
 
 
 def approval(
-    admin_addr: str = admin_addr,
-    seed_amt: int = seed_amt,
+    admin_addr: str = "",
+    seed_amt: int = 0,
     tmpl_sig: TmplSig = None,
 ):
 
@@ -106,20 +103,24 @@ def approval(
     def get_sig_address(acct_seq_start: TealType.uint64, emitter: TealType.bytes):
         # We could iterate over N items and encode them for a more general interface
         # but we inline them directly here
+
         return Sha512_256(
             Concat(
                 Bytes("Program"),
+                # ADDR_IDX aka sequence start
                 tmpl_sig.get_bytecode_chunk(0),
-                encode_uvarint(Int(8), Bytes("")), # the app id is stored as the full 8 byte uint64 
-                Itob(Global.current_application_id()), 
-                tmpl_sig.get_bytecode_chunk(1),
                 encode_uvarint(acct_seq_start, Bytes("")),
+                # EMMITTER_ID
+                tmpl_sig.get_bytecode_chunk(1),
+                encode_uvarint(Len(emitter), Bytes("")),
+                emitter,
+                # SEED_AMT
                 tmpl_sig.get_bytecode_chunk(2),
-                encode_uvarint(
-                    Len(emitter), Bytes("")
-                ),  # First write length of bytestring encoded as uvarint
-                emitter,  # Now the actual bytestring
+                encode_uvarint(seed_amt, Bytes("")),
+                # APP_ID
                 tmpl_sig.get_bytecode_chunk(3),
+                encode_uvarint(Global.current_application_id(), Bytes("")),
+                tmpl_sig.get_bytecode_chunk(4),
             )
         )
 
