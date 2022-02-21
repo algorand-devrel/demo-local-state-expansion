@@ -100,7 +100,7 @@ def approval(
     acct_seq_start = bit_idx / Int(max_bits)
 
     @Subroutine(TealType.bytes)
-    def get_sig_address(acct_seq_start: TealType.uint64, emitter: TealType.bytes):
+    def get_sig_address(acct_seq_start: Expr, emitter: Expr):
         # We could iterate over N items and encode them for a more general interface
         # but we inline them directly here
 
@@ -120,7 +120,11 @@ def approval(
                 # APP_ID
                 tmpl_sig.get_bytecode_chunk(3),
                 encode_uvarint(Global.current_application_id(), Bytes("")),
+                # TMPL_APP_ADDRESS
                 tmpl_sig.get_bytecode_chunk(4),
+                encode_uvarint(Len(Global.current_application_address()), Bytes("")),
+                Global.current_application_address(),
+                tmpl_sig.get_bytecode_chunk(5),
             )
         )
 
@@ -198,13 +202,13 @@ def clear():
 
 def get_approval_src(**kwargs):
     return compileTeal(
-        approval(**kwargs), mode=Mode.Application, version=5, assembleConstants=True
+        approval(**kwargs), mode=Mode.Application, version=6, assembleConstants=True
     )
 
 
 def get_clear_src():
     return compileTeal(
-        clear(), mode=Mode.Application, version=5, assembleConstants=True
+        clear(), mode=Mode.Application, version=6, assembleConstants=True
     )
 
 

@@ -1,4 +1,4 @@
-#pragma version 5
+#pragma version 6
 intcblock 1
 pushint TMPL_ADDR_IDX // TMPL_ADDR_IDX
 pop
@@ -10,7 +10,7 @@ return
 // init
 init_0:
 global GroupSize
-pushint 2 // 2
+pushint 3 // 3
 ==
 gtxn 0 TypeEnum
 intc_0 // pay
@@ -41,6 +41,22 @@ pushint TMPL_APP_ID // TMPL_APP_ID
 ==
 &&
 gtxn 1 RekeyTo
+global ZeroAddress
+==
+&&
+gtxn 2 TypeEnum
+intc_0 // pay
+==
+&&
+gtxn 2 Amount
+pushint 0 // 0
+==
+&&
+gtxn 2 RekeyTo
+pushbytes TMPL_APP_ADDRESS // TMPL_APP_ADDRESS
+==
+&&
+gtxn 2 CloseRemainderTo
 global ZeroAddress
 ==
 &&

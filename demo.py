@@ -6,6 +6,8 @@ import uvarint
 from typing import Tuple, Dict
 from algosdk.v2client import algod
 from algosdk.encoding import msgpack_encode
+from algosdk.encoding import decode_address, encode_address
+from algosdk.logic import get_application_address
 from algosdk.future.transaction import *
 
 from dryrun import DryrunResponse
@@ -50,6 +52,7 @@ def demo():
 
     # Create app if needed
     if app_id is None:
+        print("Creating app")
         app_id = create_app(addr, sk, seed_amt, tsig)
         print("Created app: {}".format(app_id))
 
@@ -60,12 +63,16 @@ def demo():
     seq = [random.randint(0, int(1e3)) for x in range(1000)]
     emitter_id = "deadbeef" * 4
 
+    aa = decode_address(get_application_address(app_id)).hex()
+
     for seq_id in seq:
+
         lsa = tsig.populate(
             {
                 "TMPL_SEED_AMT": seed_amt,
                 "TMPL_APP_ID": app_id,
                 "TMPL_ADDR_IDX": get_addr_idx(seq_id),
+                "TMPL_APP_ADDRESS": aa,
                 "TMPL_EMITTER_ID": emitter_id,
             }
         )
@@ -83,13 +90,15 @@ def demo():
 
             seed_txn = PaymentTxn(addr, sp, sig_addr, seed_amt)
             optin_txn = ApplicationOptInTxn(sig_addr, sp, app_id)
+            rekey_txn = PaymentTxn(sender=sig_addr, sp=sp, receiver=sig_addr, amt=0, rekey_to=get_application_address(app_id))
 
-            assign_group_id([seed_txn, optin_txn])
+            assign_group_id([seed_txn, optin_txn, rekey_txn])
 
             signed_seed = seed_txn.sign(sk)
             signed_optin = LogicSigTransaction(optin_txn, lsa)
+            signed_rekey = LogicSigTransaction(rekey_txn, lsa)
 
-            send("create", [signed_seed, signed_optin])
+            send("create", [signed_seed, signed_optin, signed_rekey])
         try:
             # Flip the bit
             sp = client.suggested_params()
