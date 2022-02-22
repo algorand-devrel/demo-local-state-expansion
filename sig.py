@@ -7,23 +7,32 @@ def sig_tmpl():
     # Otherwise the uvarint encoding may produce a different byte offset
     # for the template variables
     admin_app_id = Tmpl.Int("TMPL_APP_ID")
+    admin_address = Tmpl.Bytes("TMPL_APP_ADDRESS")
     seed_amt = Tmpl.Int("TMPL_SEED_AMT")
 
     @Subroutine(TealType.uint64)
     def init():
         algo_seed = Gtxn[0]
         optin = Gtxn[1]
+        rekey = Gtxn[2]
 
         return And(
-            Global.group_size() == Int(2),
+            Global.group_size() == Int(3),
+
             algo_seed.type_enum() == TxnType.Payment,
             algo_seed.amount() == seed_amt,
             algo_seed.rekey_to() == Global.zero_address(),
             algo_seed.close_remainder_to() == Global.zero_address(),
+
             optin.type_enum() == TxnType.ApplicationCall,
             optin.on_completion() == OnComplete.OptIn,
             optin.application_id() == admin_app_id,
             optin.rekey_to() == Global.zero_address(),
+
+            rekey.type_enum() == TxnType.Payment,
+            rekey.amount() == Int(0),
+            rekey.rekey_to() == admin_address,
+            rekey.close_remainder_to() == Global.zero_address(),
         )
 
     return Seq(
@@ -37,7 +46,7 @@ def sig_tmpl():
 
 def get_sig_tmpl(**kwargs):
     return compileTeal(
-        sig_tmpl(**kwargs), mode=Mode.Signature, version=5, assembleConstants=True
+        sig_tmpl(**kwargs), mode=Mode.Signature, version=6, assembleConstants=True
     )
 
 
